@@ -1,0 +1,56 @@
+ARG BASETAG=latest
+FROM alpine:$BASETAG
+ARG TARGETARCH=amd64
+ARG GOCRONVER=v0.0.10
+ARG TARGETOS=linux
+
+RUN set -x \
+	&& apk update \
+    && apk add ca-certificates tar gzip curl \
+	&& curl -L https://github.com/prodrigestivill/go-cron/releases/download/$GOCRONVER/go-cron-$TARGETOS-$TARGETARCH-static.gz | zcat -f  > /usr/local/bin/go-cron \
+	&& chmod a+x /usr/local/bin/go-cron
+
+
+
+ENV SCHEDULE="@daily" \
+    BACKUP_DIR="/backups" \
+    BACKUP_KEEP_DAYS=7 \
+    BACKUP_KEEP_WEEKS=4 \
+    BACKUP_KEEP_MONTHS=6 \
+    HEALTHCHECK_PORT=8080 \
+    AZURE_SA_CONTAINER="**None**" \
+    AZURE_SA_CONNECTION_STRING="**None**" \
+    AWS_REGION="**None**" \
+    AWS_ACCESS_KEY="**None**" \
+    AWS_SECRET_KEY="**None**" \
+    AWS_S3_BUCKET="**None**" \
+    AWS_S3_SUB_FOLDER="**None**" \
+    SOURCE_DIR="**None**"
+
+
+# Install Python3 dependency packages and  (Rust for building cryptography package)
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN apk add python3 py3-pip python3-dev gcc musl-dev libffi-dev openssl openssl-dev \
+    && curl https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-musl/rustup-init --output /tmp/rustup-init \
+    && chmod +x /tmp/rustup-init \
+    && /tmp/rustup-init -y \
+    && pip3 install pip --upgrade \
+    && pip3 install azure-storage-blob==12.7.1 aiohttp==3.7.3 aioboto3==8.2.0 \
+    && rustup self uninstall -y \
+    && apk del gcc python3-dev musl-dev libffi-dev ca-certificates openssl openssl-dev \
+    && rm -rf /var/cache/apk/*
+
+
+
+COPY scripts/backup.sh /backup.sh
+COPY scripts/azblob_async.py /azblob_async.py
+COPY scripts/aws_async.py /aws_async.py
+
+VOLUME /backups
+
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["exec /usr/local/bin/go-cron -s \"$SCHEDULE\" -p \"$HEALTHCHECK_PORT\" -- /backup.sh"]
+
+HEALTHCHECK --interval=5m --timeout=3s \
+  CMD curl -f "http://localhost:$HEALTHCHECK_PORT/" || exit 1

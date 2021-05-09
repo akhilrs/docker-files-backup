@@ -1,0 +1,47 @@
+ARG BASETAG=latest
+FROM debian:$BASETAG
+
+
+LABEL maintainer="akhilrs <https://akhil.rs>"
+
+ARG GOCRONVER=v0.0.9
+ARG TARGETOS
+ARG TARGETARCH
+RUN set -x \
+	&& apt-get update && apt-get install -y --no-install-recommends ca-certificates curl tar gzip && rm -rf /var/lib/apt/lists/* \
+	&& curl -L https://github.com/prodrigestivill/go-cron/releases/download/$GOCRONVER/go-cron-$TARGETOS-$TARGETARCH.gz | zcat > /usr/local/bin/go-cron \
+	&& chmod a+x /usr/local/bin/go-cron \
+	&& apt-get purge -y --auto-remove ca-certificates && apt-get clean
+
+ENV SCHEDULE="@daily" \
+    BACKUP_DIR="/backups" \
+    BACKUP_KEEP_DAYS=7 \
+    BACKUP_KEEP_WEEKS=4 \
+    BACKUP_KEEP_MONTHS=6 \
+    HEALTHCHECK_PORT=8080 \
+    AZURE_SA_CONTAINER="**None**" \
+    AZURE_SA_CONNECTION_STRING="**None**" \
+    AWS_REGION="**None**" \
+    AWS_ACCESS_KEY="**None**" \
+    AWS_SECRET_KEY="**None**" \
+    AWS_S3_BUCKET="**None**" \
+    AWS_S3_SUB_FOLDER="**None**" \
+    SOURCE_DIR="**None**"
+
+
+# Install Python3
+RUN apt-get update && apt-get install -y python3-dev python3-pip libffi-dev gcc openssl libssl-dev
+
+COPY requirements.txt /requirements.txt
+RUN pip3 install -r requirements.txt
+
+COPY backup.sh /backup.sh
+COPY azblob_async.py /azblob_async.py
+
+VOLUME /backups
+
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["exec /usr/local/bin/go-cron -s \"$SCHEDULE\" -p \"$HEALTHCHECK_PORT\" -- /backup.sh"]
+
+HEALTHCHECK --interval=5m --timeout=3s \
+  CMD curl -f "http://localhost:$HEALTHCHECK_PORT/" || exit 1

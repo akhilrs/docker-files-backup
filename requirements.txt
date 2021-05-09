@@ -1,0 +1,4 @@
+azure-storage-blob==12.7.1
+aiohttp==3.7.3
+aioboto3==8.2.0
+cryptography<=3.3.2

@@ -22,7 +22,7 @@ import sys
 class AWSS3Async(object):
     ACCESS_KEY = os.getenv("AWS_ACCESS_KEY", None)
     SECRET_KEY = os.getenv('AWS_SECRET_KEY', None)
-    S3_BUCKET = os.getenv('AWS_S3_BUCKET', None)
+    AWS_S3_BUCKET = os.getenv('AWS_S3_BUCKET', None)
     AWS_S3_SUB_FOLDER = os.getenv('AWS_S3_SUB_FOLDER', 'backups')
     REGION = os.getenv('AWS_REGION', None)
     SOURCE_FILE = None
@@ -43,7 +43,7 @@ class AWSS3Async(object):
             try:
                 with open(self.SOURCE_FILE, "rb") as data:
 
-                    await client.put_object(Bucket=self.S3_BUCKET,
+                    await client.put_object(Bucket=self.AWS_S3_BUCKET,
                                         Key=file_s3_abs_path,
                                         Body=data)
             except ResourceExistsError:

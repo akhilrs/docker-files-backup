@@ -19,7 +19,7 @@ networks:
     external: true
 
 services:
-  pg_backups:
+  file_backups:
     image: akhilrs/files-backup:latest
     deploy:
       replicas: 1
